@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using SteamAPI.Models.Mongo;
 using SteamAPI.Services;
 using SteamFarmApi.Configurations;
+using SteamAPI.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +25,7 @@ builder.Services.AddSingleton<QrRepo>();
 
 builder.Services.AddSingleton<SteamService>();
 
-builder.Services.AddHostedService<InitialSessionsBackgroundService>();
+builder.Services.AddHostedService<InitialBackgroundService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -39,6 +40,8 @@ if (app.Environment.IsDevelopment())
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ApiKeyMiddleware>();
 
 app.UseAuthorization();
 
