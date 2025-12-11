@@ -56,7 +56,7 @@ namespace SteamAPI.Services
 
         public async Task StopFarmingAsync(string accountId)
         {
-            if (_activeSessions.TryRemove(accountId, out var session))
+            if (_activeSessions.TryGetValue(accountId, out var session))
             {
                 session.Stop();
             }
@@ -109,6 +109,10 @@ namespace SteamAPI.Services
         }
         public async Task DeleteAccountAsync(string accountId)
         {
+            if (_activeSessions.TryRemove(accountId, out var session))
+            {
+                session.Stop();
+            }
             await StopFarmingAsync(accountId);
             await accRepo.Coll.DeleteOneAsync(x => x.Id == accountId);
         }

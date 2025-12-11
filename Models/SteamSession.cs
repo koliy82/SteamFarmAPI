@@ -161,7 +161,7 @@ namespace SteamAPI.Models
             logger.LogInformation($"[{_accountData.Username}] Disconnected.");
             if (_isRunning)
             {
-                await Task.Delay(5000).ContinueWith(_ => _steamClient.Connect());
+                await Task.Delay(10000).ContinueWith(_ => _steamClient.Connect());
             }
         }
 

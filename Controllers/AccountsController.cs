@@ -17,7 +17,6 @@ namespace SteamAPI.Controllers
         {
             _steamService = steamService;
             this.logger = logger;
-            _steamService.InitialStart().Wait();
         }
 
         [HttpGet("{telegramId}")]
@@ -31,7 +30,6 @@ namespace SteamAPI.Controllers
         public async Task<IActionResult> UpdateGames(string accountId, [FromBody] List<uint> gameIds)
         {
             await _steamService.UpdateGamesAsync(accountId, gameIds);
-            
             return Ok(new { message = "Game list updated" });
         }
 
