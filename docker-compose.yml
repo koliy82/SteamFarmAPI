@@ -1,31 +1,13 @@
 services:
   steamapi:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        BUILD_CONFIGURATION: Release
-    image: steamapi:latest
-    restart: always
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    volumes:
+      - ./:/src:cached
+    working_dir: /src
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+    command: ["dotnet", "run", "--project", "SteamAPI.csproj", "--urls", "http://+:8080"]
     ports:
-      - "80:8080" # карта внешнего порта 80 на внутренний 8080 контейнера
-      # - "443:8081" # раскомментируйте и настроьте TLS, если приложение слушает HTTPS на 8081
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-# Опционально: можно задать внешние сети/тома, env_file или secrets для продакшена
-networks:
-  default:
-    driver: bridge
+      - "80:8080"
+    restart: "always"
