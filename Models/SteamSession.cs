@@ -154,8 +154,7 @@ namespace SteamAPI.Models
                         game_extra_info = gameName,
                     });
                     continue;
-                }
-                if (gameId is ulong)
+                } else if (gameId is ulong)
                 {
                     playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed
                     {

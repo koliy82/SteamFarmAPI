@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using SteamAPI.Models;
 using SteamAPI.Services;
@@ -29,13 +30,15 @@ namespace SteamAPI.Controllers
         [HttpPut("{accountId}/games")]
         public async Task<IActionResult> UpdateGames(string accountId, [FromBody] List<object> gameIds)
         {
-            await _steamService.UpdateGamesAsync(accountId, gameIds);
+            if (ObjectId.TryParse(accountId, out _) == false) return BadRequest("accountId not valid");
+            await _steamService.UpdateGamesAsync(accountId, gameIds);           
             return Ok(new { message = "Game list updated" });
         }
 
         [HttpPut("{accountId}/status/{statusId}")]
         public async Task<IActionResult> UpdateStatus(string accountId, int statusId)
         {
+            if (ObjectId.TryParse(accountId, out _) == false) return BadRequest("accountId not valid");
             var status = (EPersonaState)statusId;
             await _steamService.UpdateStatusAsync(accountId, status);
             return Ok(new { message = $"Status updated: {status}" });
@@ -44,6 +47,7 @@ namespace SteamAPI.Controllers
         [HttpDelete("{accountId}")]
         public async Task<IActionResult> DeleteAccount(string accountId)
         {
+            if (ObjectId.TryParse(accountId, out _) == false) return BadRequest("accountId not valid");
             await _steamService.DeleteAccountAsync(accountId);
             return Ok(new { message = "Account deleted" });
         }
@@ -51,6 +55,7 @@ namespace SteamAPI.Controllers
         [HttpPost("{accountId}/stop")]
         public async Task<IActionResult> StopFarming(string accountId)
         {
+            if (ObjectId.TryParse(accountId, out _) == false) return BadRequest("accountId not valid");
             await _steamService.StopFarmingAsync(accountId);
             return Ok(new { message = "Farming stopped" });
         }
@@ -58,6 +63,7 @@ namespace SteamAPI.Controllers
         [HttpPost("{accountId}/start")]
         public async Task<IActionResult> StartFarming(string accountId)
         {
+            if (ObjectId.TryParse(accountId, out _) == false) return BadRequest("accountId not valid");
             await _steamService.StartFarmingAsync(accountId);
             return Ok(new { message = "Farming started" });
         }

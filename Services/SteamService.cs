@@ -1,10 +1,12 @@
-﻿using MongoDB.Driver;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
 using SteamAPI.Controllers;
 using SteamAPI.Models;
 using SteamAPI.Models.Mongo;
+using SteamAPI.Utils;
 using SteamKit2;
-using MongoDB.Bson;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace SteamAPI.Services
 {
@@ -67,7 +69,12 @@ namespace SteamAPI.Services
 
         public async Task UpdateGamesAsync(string accountId, List<object> games)
         {
-            var update = Builders<SteamAccount>.Update.Set(x => x.GameIds, games);
+            var converted = games.Select(g => g is JsonElement je ? ObjectConverter.ConvertJsonElement(je) : g).ToList();
+            if (converted == null || converted.Any(g => g == null))
+            {
+                logger.LogWarning("Failed to convert some game IDs for account {AccountId}", accountId);
+            }
+            var update = Builders<SteamAccount>.Update.Set(x => x.GameIds, converted!);
             await accRepo.Coll.UpdateOneAsync(x => x.Id == accountId, update);
 
             if (_activeSessions.TryGetValue(accountId, out var session))
