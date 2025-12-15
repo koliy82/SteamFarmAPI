@@ -79,7 +79,7 @@ namespace SteamAPI.Services
 
             if (_activeSessions.TryGetValue(accountId, out var session))
             {
-                session.UpdateGames(games);
+                session.UpdateGames(converted!);
             }
         }
 

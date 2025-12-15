@@ -146,6 +146,7 @@ namespace SteamAPI.Models
 
             foreach (var gameId in _accountData.GameIds)
             {
+                logger.LogInformation($"[{_accountData.Username}] Adding game to play: {gameId} string?: {gameId is string} ulong?: {gameId is ulong} type: {gameId.GetType()}");
                 if (gameId is string gameName)
                 {
                     playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed
@@ -154,15 +155,24 @@ namespace SteamAPI.Models
                         game_extra_info = gameName,
                     });
                     continue;
-                } else if (gameId is ulong)
+                }
+                if (gameId is ulong ul)
+                {
+                    playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed { game_id = ul });
+                    continue;
+                }
+                try
                 {
                     playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed
                     {
-                        game_id = (ulong)gameId,
+                        game_id = Convert.ToUInt64(gameId),
                     });
                 }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, $"[{_accountData.Username}] Failed to add game ID: {gameId}");
+                }
             }
-
             _steamClient.Send(playGame);
             logger.LogInformation($"[{_accountData.Username}] Farming started for games: {string.Join(",", _accountData.GameIds)}");
         }
