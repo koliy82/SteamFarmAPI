@@ -79,7 +79,7 @@ namespace SteamAPI.Models
             _steamClient.Disconnect();
         }
 
-        public void UpdateGames(List<uint> gameIds)
+        public void UpdateGames(List<object> gameIds)
         {
             _accountData.GameIds = gameIds;
             if (_steamClient.IsConnected)
@@ -142,14 +142,26 @@ namespace SteamAPI.Models
 
         private void SendGamesPlayed()
         {
-            var playGame = new ClientMsgProtobuf<CMsgClientGamesPlayed>(EMsg.ClientGamesPlayed);
+            var playGame = new ClientMsgProtobuf<CMsgClientGamesPlayed>(EMsg.ClientGamesPlayedWithDataBlob);
 
             foreach (var gameId in _accountData.GameIds)
             {
-                playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed
+                if (gameId is string gameName)
                 {
-                    game_id = gameId,
-                });
+                    playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed
+                    {
+                        game_id = 15190414816125648896,
+                        game_extra_info = gameName,
+                    });
+                    continue;
+                }
+                if (gameId is ulong)
+                {
+                    playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed
+                    {
+                        game_id = (ulong)gameId,
+                    });
+                }
             }
 
             _steamClient.Send(playGame);

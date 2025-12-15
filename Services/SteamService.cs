@@ -65,7 +65,7 @@ namespace SteamAPI.Services
             await accRepo.Coll.UpdateOneAsync(x => x.Id == accountId, update);
         }
 
-        public async Task UpdateGamesAsync(string accountId, List<uint> games)
+        public async Task UpdateGamesAsync(string accountId, List<object> games)
         {
             var update = Builders<SteamAccount>.Update.Set(x => x.GameIds, games);
             await accRepo.Coll.UpdateOneAsync(x => x.Id == accountId, update);

@@ -19,7 +19,7 @@ namespace SteamAPI.Models
         [BsonElement("refresh_token")]
         public string? RefreshToken { get; set; }
         [BsonElement("game_ids")]
-        public List<uint> GameIds { get; set; } = [570];
+        public List<object> GameIds { get; set; } = ["Famoria bot", 570];
         [BsonElement("is_farming")]
         public bool IsFarming { get; set; } = true;
         [BsonElement("persona_state")]

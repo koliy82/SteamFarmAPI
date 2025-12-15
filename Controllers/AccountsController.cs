@@ -27,7 +27,7 @@ namespace SteamAPI.Controllers
         }
 
         [HttpPut("{accountId}/games")]
-        public async Task<IActionResult> UpdateGames(string accountId, [FromBody] List<uint> gameIds)
+        public async Task<IActionResult> UpdateGames(string accountId, [FromBody] List<object> gameIds)
         {
             await _steamService.UpdateGamesAsync(accountId, gameIds);
             return Ok(new { message = "Game list updated" });

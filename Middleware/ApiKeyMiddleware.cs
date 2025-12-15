@@ -113,7 +113,8 @@ namespace SteamAPI.Middleware
                 return;
             }
 
-            _logger.LogWarning("Unauthorized request to {Path}", path);
+            _logger.LogWarning($"Unauthorized request to {path} from: {context.Request.HttpContext.Connection.RemoteIpAddress}");
+            
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsync("Unauthorized");
         }
