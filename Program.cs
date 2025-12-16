@@ -4,6 +4,7 @@ using SteamAPI.Models.Mongo;
 using SteamAPI.Services;
 using SteamFarmApi.Configurations;
 using SteamAPI.Middleware;
+using SteamAPI.Models.Mongo.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,7 @@ builder.Services.AddSingleton(s =>
 });
 builder.Services.AddSingleton<AccountRepo>();
 builder.Services.AddSingleton<QrRepo>();
+builder.Services.AddSingleton<FarmLogRepo>();
 
 builder.Services.AddSingleton<SteamService>();
 

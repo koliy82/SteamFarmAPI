@@ -1,4 +1,4 @@
-﻿namespace SteamAPI.Models.Mongo
+﻿namespace SteamAPI.Models.Mongo.Models
 {
     public interface IEntity
     {

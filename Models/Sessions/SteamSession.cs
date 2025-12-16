@@ -1,19 +1,20 @@
-﻿using Microsoft.Extensions.Logging;
-using SteamAPI.Controllers;
+﻿using SteamAPI.Controllers;
 using SteamKit2;
 using SteamKit2.Authentication;
 using SteamKit2.Internal;
 using SteamAPI.Models.Mongo;
 using MongoDB.Driver;
+using SteamAPI.Models.Mongo.Repositories;
+using SteamAPI.Models.Mongo.Models;
 
-namespace SteamAPI.Models
+namespace SteamAPI.Models.Sessions
 {
     public class SteamSession
     {
         private SteamClient _steamClient;
         private CallbackManager _manager;
         private SteamUser? _steamUser;
-        private SteamAccount _accountData;
+        public SteamAccount accountData;
         private bool _isRunning;
         private CancellationTokenSource _cts;
 
@@ -21,15 +22,17 @@ namespace SteamAPI.Models
         public SessionStatus status = SessionStatus.Unknown;
         private readonly ILogger<AccountsController> logger;
         private readonly AccountRepo _accRepo;
-        private readonly QrRepo? _qrRepo;
+        private readonly QrRepo _qrRepo;
+        private readonly FarmLogRepo _logRepo;
         private readonly Action<SteamSession>? _onAuthenticated;
 
-        public SteamSession(SteamAccount account, ILogger<AccountsController> logger, AccountRepo accRepo, QrRepo? qrRepo = null, Action<SteamSession>? onAuthenticated = null)
+        public SteamSession(SteamAccount account, ILogger<AccountsController> logger, AccountRepo accRepo, QrRepo qrRepo, FarmLogRepo logRepo, Action<SteamSession>? onAuthenticated = null)
         {
             this.logger = logger;
-            _accountData = account;
+            accountData = account;
             _accRepo = accRepo;
             _qrRepo = qrRepo;
+            _logRepo = logRepo;
             _onAuthenticated = onAuthenticated;
             _steamClient = new SteamClient();
             _manager = new CallbackManager(_steamClient);
@@ -47,16 +50,16 @@ namespace SteamAPI.Models
             _manager.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);
             _manager.Subscribe<SteamUser.LoggedOffCallback>(OnLoggedOff);
 
-            Start();
+            Init();
         }
 
-        public void Start()
+        public void Init()
         {
             if (_isRunning) return;
             _steamClient.Connect();
             _isRunning = true;
             _cts = new CancellationTokenSource();
-            logger.LogInformation($"[{_accountData.Username}] Connecting...");
+            logger.LogInformation($"[{accountData.Username}] Connecting...");
             
             Task.Run(() =>
             {
@@ -66,57 +69,79 @@ namespace SteamAPI.Models
                 }
             }, _cts.Token);
         }
-        public void Stop()
+
+        public async Task Start()
         {
-            _isRunning = false;
-            _cts?.Cancel();
+            if (_steamClient.IsConnected && accountData.IsFarming)
+            {
+                await SendGamesPlayed();
+            }
         }
 
-        public void Delete()
+        public async Task Stop()
         {
-            Stop();
-            _steamUser.LogOff();
+            if (_steamClient.IsConnected)
+            {
+                var playGame = new ClientMsgProtobuf<CMsgClientGamesPlayed>(EMsg.ClientGamesPlayedWithDataBlob);
+                _steamClient.Send(playGame);
+                logger.LogInformation($"[{accountData.Username}] Farming stopped for games: {string.Join(",", accountData.GameIds)}");
+                await _logRepo.Coll.InsertOneAsync(new FarmLog
+                {
+                    Reason = "User stop",
+                    State = status,
+                    SteamId = accountData.Id,
+                    SteamName = accountData.Username,
+                    TelegramId = accountData.TelegramId,
+                });
+            }
+        }
+
+        public async Task Delete()
+        {
+            status = SessionStatus.Deleted;
+            await Stop();
+            _isRunning = false;
+            _cts?.Cancel();
+            _steamUser?.LogOff();
             _steamClient.Disconnect();
         }
 
-        public void UpdateGames(List<object> gameIds)
+        public async Task UpdateGames(List<object> gameIds)
         {
-            _accountData.GameIds = gameIds;
-            if (_steamClient.IsConnected)
-            {
-                SendGamesPlayed();
-            }
+            accountData.GameIds = gameIds;
+            await Start();
         }
 
         public void UpdateStatus(EPersonaState state)
         {
-            _accountData.PersonaState = state;
+            accountData.PersonaState = state;
             if (_steamClient.IsConnected)
             {
-                _steamFriends?.SetPersonaState(state);
+                _steamFriends?.SetPersonaState(accountData.PersonaState);
             }
         }
 
         async void OnConnected(SteamClient.ConnectedCallback callback)
         {
-            logger.LogInformation($"Steam server for {_accountData.Username} Connected. Logging in...");
+            logger.LogInformation($"Steam server for {accountData.Username} Connected. Logging in...");
             LogIn();
         }
 
         private void LogIn()
         {
-            logger.LogInformation($"{_accountData.Username} logging in try...");
-            if (_accountData.RefreshToken == null)
+            logger.LogInformation($"{accountData.Username} logging in try...");
+            if (status == SessionStatus.Active) { return; }
+            if (accountData.RefreshToken == null)
             {
-                logger.LogInformation($"{_accountData.Username} Refresh token is null, need auth.");
+                logger.LogInformation($"{accountData.Username} Refresh token is null, need auth.");
                 status = SessionStatus.NeedAuth;
                 return;
             }
 
-            _steamUser.LogOn(new SteamUser.LogOnDetails
+            _steamUser?.LogOn(new SteamUser.LogOnDetails
             {
-                Username = _accountData.Username,
-                AccessToken = _accountData.RefreshToken,
+                Username = accountData.Username,
+                AccessToken = accountData.RefreshToken,
                 ShouldRememberPassword = true
             });
         }
@@ -125,28 +150,26 @@ namespace SteamAPI.Models
         {
             if (callback.Result != EResult.OK)
             {
-                logger.LogInformation($"[{_accountData.Username}] Logon failed: {callback.Result}");
+                logger.LogInformation($"[{accountData.Username}] Logon failed: {callback.Result}");
                 return;
             }
 
-            logger.LogInformation($"[{_accountData.Username}] Successfully logged on!");
+            logger.LogInformation($"[{accountData.Username}] Successfully logged on!");
 
-            _steamFriends?.SetPersonaState(_accountData.PersonaState);
+            _steamFriends?.SetPersonaState(accountData.PersonaState);
 
-            if (_accountData.GameIds.Count > 0)
-            {
-                SendGamesPlayed();
-            }
             status = SessionStatus.Active;
+            if (accountData.GameIds.Count > 0)
+            {
+                await Start();
+            }
         }
 
-        private void SendGamesPlayed()
+        private async Task SendGamesPlayed()
         {
             var playGame = new ClientMsgProtobuf<CMsgClientGamesPlayed>(EMsg.ClientGamesPlayedWithDataBlob);
-
-            foreach (var gameId in _accountData.GameIds)
+            foreach (var gameId in accountData.GameIds)
             {
-                logger.LogInformation($"[{_accountData.Username}] Adding game to play: {gameId} string?: {gameId is string} ulong?: {gameId is ulong} type: {gameId.GetType()}");
                 if (gameId is string gameName)
                 {
                     playGame.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed
@@ -170,16 +193,24 @@ namespace SteamAPI.Models
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, $"[{_accountData.Username}] Failed to add game ID: {gameId}");
+                    logger.LogError(ex, $"[{accountData.Username}] Failed to add game ID: {gameId}");
                 }
             }
             _steamClient.Send(playGame);
-            logger.LogInformation($"[{_accountData.Username}] Farming started for games: {string.Join(",", _accountData.GameIds)}");
+            await _logRepo.Coll.InsertOneAsync(new FarmLog
+            {
+                Reason = "Send games",
+                State = status,
+                SteamId = accountData.Id,
+                SteamName = accountData.Username,
+                TelegramId = accountData.TelegramId
+            });
+            logger.LogInformation($"[{accountData.Username}] Farming started for games: {string.Join(",", accountData.GameIds)}");
         }
 
         async void OnDisconnected(SteamClient.DisconnectedCallback callback)
         {
-            logger.LogInformation($"[{_accountData.Username}] Disconnected.");
+            logger.LogInformation($"[{accountData.Username}] Disconnected.");
             if (_isRunning)
             {
                 await Task.Delay(10000).ContinueWith(_ => _steamClient.Connect());
@@ -188,7 +219,8 @@ namespace SteamAPI.Models
 
         async void OnLoggedOff(SteamUser.LoggedOffCallback callback)
         {
-            logger.LogInformation($"[{_accountData.Username}] Logged off: {callback.Result}");
+            logger.LogInformation($"[{accountData.Username}] Logged off: {callback.Result}");
+            status = SessionStatus.NeedAuth;
         }
 
         public async Task<QrLoginSession> GenerateQrCode()
@@ -208,7 +240,7 @@ namespace SteamAPI.Models
                 var challenge = authSession.ChallengeURL;
                 logger.LogDebug(challenge);
 
-                var newQrSession = new QrLoginSession(_accountData.Id)
+                var newQrSession = new QrLoginSession(accountData.Id)
                 {
                     CreatedAt = DateTime.UtcNow,
                     ChallengeUrl = challenge,
@@ -263,24 +295,24 @@ namespace SteamAPI.Models
                         var pollResponse = await pollTask;
 
                         // update account data in memory and in mongo (upsert)
-                        _accountData.Username = pollResponse.AccountName;
-                        _accountData.RefreshToken = pollResponse.RefreshToken;
+                        accountData.Username = pollResponse.AccountName;
+                        accountData.RefreshToken = pollResponse.RefreshToken;
 
                         var update = Builders<SteamAccount>.Update
-                            .Set(x => x.Username, _accountData.Username)
-                            .Set(x => x.RefreshToken, _accountData.RefreshToken)
-                            .SetOnInsert(x => x.TelegramId, _accountData.TelegramId)
-                            .SetOnInsert(x => x.GameIds, _accountData.GameIds)
-                            .SetOnInsert(x => x.IsFarming, _accountData.IsFarming)
-                            .SetOnInsert(x => x.PersonaState, _accountData.PersonaState);
+                            .Set(x => x.Username, accountData.Username)
+                            .Set(x => x.RefreshToken, accountData.RefreshToken)
+                            .SetOnInsert(x => x.TelegramId, accountData.TelegramId)
+                            .SetOnInsert(x => x.GameIds, accountData.GameIds)
+                            .SetOnInsert(x => x.IsFarming, accountData.IsFarming)
+                            .SetOnInsert(x => x.PersonaState, accountData.PersonaState);
 
-                        var filter = Builders<SteamAccount>.Filter.Eq(x => x.Id, _accountData.Id);
+                        var filter = Builders<SteamAccount>.Filter.Eq(x => x.Id, accountData.Id);
                         var options = new UpdateOptions { IsUpsert = true };
 
                         try
                         {
                             await _accRepo.Coll.UpdateOneAsync(filter, update, options);
-                            logger.LogInformation($"[{_accountData.Id}] Account upserted in MongoDB with username: {_accountData.Username}");
+                            logger.LogInformation($"[{accountData.Id}] Account upserted in MongoDB with username: {accountData.Username}");
                         }
                         catch (Exception dbEx)
                         {
@@ -292,8 +324,8 @@ namespace SteamAPI.Models
                         {
                             var qrUpdate = Builders<QrLoginSession>.Update
                                 .Set(x => x.Status, "completed")
-                                .Set(x => x.Username, _accountData.Username)
-                                .Set(x => x.RefreshToken, _accountData.RefreshToken);
+                                .Set(x => x.Username, accountData.Username)
+                                .Set(x => x.RefreshToken, accountData.RefreshToken);
 
                             try
                             {

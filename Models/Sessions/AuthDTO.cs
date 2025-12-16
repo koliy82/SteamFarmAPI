@@ -1,5 +1,5 @@
-﻿using SteamAPI.Models;
-using SteamAPI.Models.Mongo;
+﻿using SteamAPI.Models.Mongo;
+using SteamAPI.Models.Mongo.Models;
 
 namespace SteamAPI.Services
 {

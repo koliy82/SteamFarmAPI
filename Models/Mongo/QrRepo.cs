@@ -1,4 +1,5 @@
 ﻿using MongoDB.Driver;
+using SteamAPI.Models.Mongo.Repositories;
 using SteamFarmApi.Configurations;
 
 namespace SteamAPI.Models.Mongo

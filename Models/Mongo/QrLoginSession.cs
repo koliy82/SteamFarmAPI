@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using SteamAPI.Models.Mongo.Models;
 
 namespace SteamAPI.Models.Mongo
 {

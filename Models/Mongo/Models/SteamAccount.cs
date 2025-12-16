@@ -1,9 +1,8 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using SteamAPI.Models.Mongo;
 using SteamKit2;
 
-namespace SteamAPI.Models
+namespace SteamAPI.Models.Mongo.Models
 {
     public class SteamAccount(long telegramId) : IEntity
     {

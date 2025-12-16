@@ -1,8 +1,10 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
 using SteamAPI.Controllers;
-using SteamAPI.Models;
 using SteamAPI.Models.Mongo;
+using SteamAPI.Models.Mongo.Models;
+using SteamAPI.Models.Mongo.Repositories;
+using SteamAPI.Models.Sessions;
 using SteamAPI.Utils;
 using SteamKit2;
 using System.Collections.Concurrent;
@@ -14,13 +16,15 @@ namespace SteamAPI.Services
     {
         public AccountRepo accRepo;
         private readonly QrRepo qrRepo;
+        private readonly FarmLogRepo farmRepo;
         // Активные сессии фарма: AccountId -> Session
         private readonly ConcurrentDictionary<string, SteamSession> _activeSessions = new();
 
         private readonly ILogger<AccountsController> logger;
-        public SteamService(AccountRepo accRepo, QrRepo qrRepo, ILogger<AccountsController> logger) {
+        public SteamService(AccountRepo accRepo, QrRepo qrRepo, FarmLogRepo farmRepo, ILogger<AccountsController> logger) {
             this.accRepo = accRepo;
             this.qrRepo = qrRepo;
+            this.farmRepo = farmRepo;
             this.logger = logger;
         }
 
@@ -29,13 +33,14 @@ namespace SteamAPI.Services
         {
             var account = await accRepo.FindByIdAsync(accountId);
             if (account == null || string.IsNullOrEmpty(account.RefreshToken)) return;
-
-            if (_activeSessions.ContainsKey(accountId)) return;
-
-            // create session without onAuthenticated because it's already known
-            var session = new SteamSession(account, logger, accRepo, qrRepo);
-            _activeSessions[accountId] = session;
-            session.Start();
+            var session = _activeSessions[accountId];
+            if (session == null)
+            {
+                session = new SteamSession(account, logger, accRepo, qrRepo, farmRepo);
+                _activeSessions[accountId] = session;
+            }
+            session.accountData.IsFarming = true;
+            await session.Start();
 
             // Обновляем статус в БД
             var update = Builders<SteamAccount>.Update.Set(x => x.IsFarming, true);
@@ -47,11 +52,11 @@ namespace SteamAPI.Services
             var accounts = await accRepo.Coll.Find(_ => true).ToListAsync();
             foreach (var account in accounts)
             {
-                var session = new SteamSession(account, logger, accRepo, qrRepo);
+                var session = new SteamSession(account, logger, accRepo, qrRepo, farmRepo);
                 _activeSessions.TryAdd(account.Id, session);
                 if (account.IsFarming)
                 {
-                    session.Start();
+                    session.Init();
                 }
             }
         }
@@ -60,7 +65,7 @@ namespace SteamAPI.Services
         {
             if (_activeSessions.TryGetValue(accountId, out var session))
             {
-                session.Stop();
+                await session.Stop();
             }
 
             var update = Builders<SteamAccount>.Update.Set(x => x.IsFarming, false);
@@ -103,7 +108,7 @@ namespace SteamAPI.Services
             }
 
             // create session and provide onAuthenticated callback so it will be added to active sessions
-            var newSession = new SteamSession(account, logger, accRepo, qrRepo: qrRepo, onAuthenticated: s => {
+            var newSession = new SteamSession(account, logger, accRepo, qrRepo: qrRepo, farmRepo, onAuthenticated: s => {
                 _activeSessions[account.Id] = s;
             });
 
@@ -118,7 +123,7 @@ namespace SteamAPI.Services
         {
             if (_activeSessions.TryRemove(accountId, out var session))
             {
-                session.Stop();
+                await session.Delete();
             }
             await StopFarmingAsync(accountId);
             await accRepo.Coll.DeleteOneAsync(x => x.Id == accountId);

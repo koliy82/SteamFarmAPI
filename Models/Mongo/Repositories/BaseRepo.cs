@@ -1,7 +1,8 @@
 ﻿using MongoDB.Driver;
+using SteamAPI.Models.Mongo.Models;
 using SteamFarmApi.Configurations;
 
-namespace SteamAPI.Models.Mongo
+namespace SteamAPI.Models.Mongo.Repositories
 {
     public class Repository<T>(IMongoDatabase db, MongoSettings settings) where T : IEntity
     {

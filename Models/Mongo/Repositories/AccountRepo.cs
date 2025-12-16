@@ -1,7 +1,8 @@
 ﻿using MongoDB.Driver;
+using SteamAPI.Models.Mongo.Models;
 using SteamFarmApi.Configurations;
 
-namespace SteamAPI.Models.Mongo
+namespace SteamAPI.Models.Mongo.Repositories
 {
     public class AccountRepo : Repository<SteamAccount>
     {

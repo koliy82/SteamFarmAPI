@@ -1,6 +1,7 @@
 ﻿using MongoDB.Driver;
 using SteamAPI.Controllers;
 using SteamAPI.Models.Mongo;
+using SteamAPI.Models.Mongo.Repositories;
 using System.Collections.Concurrent;
 
 namespace SteamAPI.Services
