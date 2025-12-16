@@ -12,21 +12,15 @@ using System.Text.Json;
 
 namespace SteamAPI.Services
 {
-    public partial class SteamService
+    public partial class SteamService(AccountRepo accRepo, QrRepo qrRepo, FarmLogRepo farmRepo, ILogger<AccountsController> logger)
     {
-        public AccountRepo accRepo;
-        private readonly QrRepo qrRepo;
-        private readonly FarmLogRepo farmRepo;
+        public AccountRepo accRepo = accRepo;
+        private readonly QrRepo qrRepo = qrRepo;
+        private readonly FarmLogRepo farmRepo = farmRepo;
         // Активные сессии фарма: AccountId -> Session
         private readonly ConcurrentDictionary<string, SteamSession> _activeSessions = new();
 
-        private readonly ILogger<AccountsController> logger;
-        public SteamService(AccountRepo accRepo, QrRepo qrRepo, FarmLogRepo farmRepo, ILogger<AccountsController> logger) {
-            this.accRepo = accRepo;
-            this.qrRepo = qrRepo;
-            this.farmRepo = farmRepo;
-            this.logger = logger;
-        }
+        private readonly ILogger<AccountsController> logger = logger;
 
         // Запуск фарма для аккаунта из БД
         public async Task StartFarmingAsync(string accountId)
@@ -84,7 +78,7 @@ namespace SteamAPI.Services
 
             if (_activeSessions.TryGetValue(accountId, out var session))
             {
-                session.UpdateGames(converted!);
+                await session.UpdateGames(converted!);
             }
         }
 

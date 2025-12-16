@@ -10,9 +10,9 @@ namespace SteamAPI.Models.Mongo.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
         [BsonElement("steam_id")]
-        public string SteamId { get; set; }
+        public string SteamId { get; set; } = string.Empty;
         [BsonElement("telegram_id")]
-        public long TelegramId { get; set; }
+        public long TelegramId { get; set; } = 0;
         [BsonElement("steam_name")]
 
         public string? SteamName { get; set; }
@@ -20,6 +20,7 @@ namespace SteamAPI.Models.Mongo.Models
         public SessionStatus State { get; set; } = SessionStatus.Unknown;
         [BsonElement("reason")]
         public string? Reason { get; set; }
-        public DateTime date { get; set; } = DateTime.Now;
+        [BsonElement("date")]
+        public DateTime Date { get; set; } = DateTime.Now;
     }
 }

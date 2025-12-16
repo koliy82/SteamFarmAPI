@@ -9,24 +9,18 @@ using System.Collections.Generic;
 
 namespace SteamAPI.Middleware
 {
-    public class ApiKeyMiddleware
+    public class ApiKeyMiddleware(RequestDelegate next, ILogger<ApiKeyMiddleware> logger)
     {
-        private readonly RequestDelegate _next;
-        private readonly ILogger<ApiKeyMiddleware> _logger;
+        private readonly RequestDelegate _next = next;
+        private readonly ILogger<ApiKeyMiddleware> _logger = logger;
         private readonly string[] _protectedPrefixes = ["/"];
 
         // cache for keys read from file to avoid reading file on every request
         private HashSet<string>? _allowedKeysFromFile;
         private DateTime _keysFileWriteTimeUtc = DateTime.MinValue;
-        private readonly object _keysLock = new object();
+        private readonly object _keysLock = new();
 
-        public ApiKeyMiddleware(RequestDelegate next, ILogger<ApiKeyMiddleware> logger)
-        {
-            _next = next;
-            _logger = logger;
-        }
-
-        public async Task InvokeAsync(HttpContext context, IHostEnvironment env)
+        public async Task InvokeAsync(HttpContext context)
         {
             var path = context.Request.Path.Value ?? string.Empty;
 
@@ -58,7 +52,7 @@ namespace SteamAPI.Middleware
                     {
                         var l = line?.Trim();
                         if (string.IsNullOrEmpty(l)) continue;
-                        if (l.StartsWith("#")) continue;
+                        if (l.StartsWith('#')) continue;
                         keys.Add(l);
                     }
 
@@ -88,7 +82,7 @@ namespace SteamAPI.Middleware
                 return;
             }
 
-            string providedKey = null;
+            string? providedKey = null;
 
             if (context.Request.Headers.TryGetValue("X-API-KEY", out var headerValues))
                 providedKey = headerValues.FirstOrDefault();
@@ -98,7 +92,7 @@ namespace SteamAPI.Middleware
                 var auth = authHeader.FirstOrDefault();
                 if (!string.IsNullOrEmpty(auth) && auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
                 {
-                    providedKey = auth.Substring("Bearer ".Length).Trim();
+                    providedKey = auth["Bearer ".Length..].Trim();
                 }
             }
 

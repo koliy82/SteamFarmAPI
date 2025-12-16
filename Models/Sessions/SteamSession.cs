@@ -16,7 +16,7 @@ namespace SteamAPI.Models.Sessions
         private SteamUser? _steamUser;
         public SteamAccount accountData;
         private bool _isRunning;
-        private CancellationTokenSource _cts;
+        private CancellationTokenSource? _cts;
 
         public SteamFriends? _steamFriends;
         public SessionStatus status = SessionStatus.Unknown;

@@ -11,7 +11,7 @@ namespace SteamAPI.Models.Mongo
         public string Id { get; set; } = string.Empty;
         public string SteamId { get; set; } = SteamId;
 
-        public string Username { get; set; }
+        public string? Username { get; set; }
         public string ChallengeUrl { get; set; } = "";
         public string Status { get; set; } = "waiting";
         public string? RefreshToken { get; set; }
