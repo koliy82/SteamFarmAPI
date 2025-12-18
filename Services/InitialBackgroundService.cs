@@ -2,37 +2,30 @@
 
 namespace SteamAPI.Services
 {
-    public class InitialBackgroundService : BackgroundService
+    public class InitialBackgroundService(
+        SteamService steamService, 
+        ILogger<InitialBackgroundService> logger, 
+        IHostEnvironment env
+    ) : BackgroundService 
     {
-        private readonly SteamService _steamService;
-        private readonly ILogger<InitialBackgroundService> _logger;
-        private readonly IHostEnvironment _env;
-
-        public InitialBackgroundService(SteamService steamService, ILogger<InitialBackgroundService> logger, IHostEnvironment env)
-        {
-            _steamService = steamService;
-            _logger = logger;
-            _env = env;
-        }
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("InitialBackgroundService: starting initial sessions load.");
+            logger.LogInformation("InitialBackgroundService: starting initial sessions load.");
 
             try
             {
                 EnsureApiKeyFileExists();
 
-                await _steamService.InitialStart();
-                _logger.LogInformation("InitialBackgroundService: initial sessions load completed.");
+                await steamService.InitialStart();
+                logger.LogInformation("InitialBackgroundService: initial sessions load completed.");
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("InitialBackgroundService: cancelled.");
+                logger.LogInformation("InitialBackgroundService: cancelled.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "InitialBackgroundService: InitialStart failed.");
+                logger.LogError(ex, "InitialBackgroundService: InitialStart failed.");
             }
 
         }
@@ -44,7 +37,7 @@ namespace SteamAPI.Services
                 var keyFilePath = Environment.GetEnvironmentVariable("API_KEY_FILE");
                 if (string.IsNullOrWhiteSpace(keyFilePath))
                 {
-                    keyFilePath = Path.Combine(_env.ContentRootPath, "api_keys.txt");
+                    keyFilePath = Path.Combine(env.ContentRootPath, "api_keys.txt");
                     Environment.SetEnvironmentVariable("API_KEY_FILE", keyFilePath);
                 }
 
@@ -64,16 +57,16 @@ namespace SteamAPI.Services
                     var header = new[] { "# API keys file. One key per line. Lines starting with # are ignored.", $"# Generated: {DateTime.UtcNow:O}", "" };
                     File.WriteAllLines(keyFilePath, header.Concat(keys));
 
-                    _logger.LogInformation("API key file created at {Path} with {Count} keys", keyFilePath, keys.Count);
+                    logger.LogInformation("API key file created at {Path} with {Count} keys", keyFilePath, keys.Count);
                 }
                 else
                 {
-                    _logger.LogInformation("API key file exists at {Path}", keyFilePath);
+                    logger.LogInformation("API key file exists at {Path}", keyFilePath);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to ensure API key file exists");
+                logger.LogError(ex, "Failed to ensure API key file exists");
             }
         }
     }

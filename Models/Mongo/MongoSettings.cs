@@ -1,4 +1,4 @@
-﻿namespace SteamFarmApi.Configurations
+﻿namespace SteamAPI.Models.Mongo
 {
     public class MongoSettings
     {

@@ -6,6 +6,7 @@
         Active,
         NeedAuth,
         Stopped,
-        Deleted
+        Deleted,
+        TryAnotherCM,
     }
 }

@@ -146,11 +146,57 @@ namespace SteamAPI.Models.Sessions
             });
         }
 
-        async void OnLoggedOn(SteamUser.LoggedOnCallback callback)
+        private async void OnLoggedOn(SteamUser.LoggedOnCallback callback)
         {
+            if (callback.Result == EResult.TryAnotherCM)
+            {
+                _isRunning = false;
+                logger.LogWarning($"[{accountData.Username}] Logon result: TryAnotherCM — попросили подключиться к другому CM. Запланирована серия переподключений.");
+                _ = Task.Run(async () =>
+                {
+                    const int maxAttempts = 5;
+                    for (int attempt = 1; attempt <= maxAttempts && _isRunning; attempt++)
+                    {
+                        try
+                        {
+                            logger.LogInformation($"[{accountData.Username}] Попытка переподключения #{attempt}...");
+
+                            // Принудительно разрываем текущее соединение — при новом Connect SteamKit2 попытается выбрать другой CM
+                            try { _steamClient.Disconnect(); } catch { /* ignore */ }
+
+                            var delayMs = 1000 * (int)Math.Pow(2, attempt - 1); // 1s,2s,4s,8s,16s
+                            await Task.Delay(delayMs);
+
+                            if (!_isRunning) break;
+
+                            _steamClient.Connect();
+
+                            // Подождём короткий промежуток — если логин прошёл, OnLoggedOn для OK сработает и status сменится
+                            await Task.Delay(5000);
+
+                            if (status != SessionStatus.Active) continue;
+                            _isRunning = true;
+                            logger.LogInformation($"[{accountData.Username}] Успешно подключились к другому CM.");
+                            return;
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, $"[{accountData.Username}] Ошибка при попытке переподключения к другому CM");
+                        }
+                    }
+
+                    logger.LogWarning($"[{accountData.Username}] Не удалось подключиться к другому CM после нескольких попыток.");
+
+                    // Если не удалось — пометим что нужна авторизация/вмешательство
+                    status = SessionStatus.TryAnotherCM;
+                });
+                return;
+            }
+
             if (callback.Result != EResult.OK)
             {
                 logger.LogInformation($"[{accountData.Username}] Logon failed: {callback.Result}");
+                logger.LogInformation($"[{accountData.Username}] callback: {callback}");
                 return;
             }
 

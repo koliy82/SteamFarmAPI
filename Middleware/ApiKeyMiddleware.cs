@@ -1,18 +1,7 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using System.IO;
-using System.Collections.Generic;
-
 namespace SteamAPI.Middleware
 {
     public class ApiKeyMiddleware(RequestDelegate next, ILogger<ApiKeyMiddleware> logger)
     {
-        private readonly RequestDelegate _next = next;
-        private readonly ILogger<ApiKeyMiddleware> _logger = logger;
         private readonly string[] _protectedPrefixes = ["/"];
 
         // cache for keys read from file to avoid reading file on every request
@@ -27,14 +16,14 @@ namespace SteamAPI.Middleware
             bool requiresAuth = _protectedPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
             if (!requiresAuth)
             {
-                await _next(context);
+                await next(context);
                 return;
             }
 
             var keyFile = Environment.GetEnvironmentVariable("API_KEY_FILE");
             if (string.IsNullOrWhiteSpace(keyFile) || !File.Exists(keyFile))
             {
-                _logger.LogError("API key file not configured or missing. Blocking request.");
+                logger.LogError("API key file not configured or missing. Blocking request.");
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 await context.Response.WriteAsync("API key file not configured on server.");
                 return;
@@ -62,12 +51,12 @@ namespace SteamAPI.Middleware
                         _keysFileWriteTimeUtc = writeTime;
                     }
 
-                    _logger.LogInformation("Loaded {Count} API keys from file {KeyFile}", keys.Count, keyFile);
+                    logger.LogInformation("Loaded {Count} API keys from file {KeyFile}", keys.Count, keyFile);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to read API key file '{KeyFile}'", keyFile);
+                logger.LogError(ex, "Failed to read API key file '{KeyFile}'", keyFile);
                 // if reading fails, block
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 await context.Response.WriteAsync("Failed to read API key file.");
@@ -76,7 +65,7 @@ namespace SteamAPI.Middleware
 
             if (_allowedKeysFromFile == null || _allowedKeysFromFile.Count == 0)
             {
-                _logger.LogError("No API keys found in key file. Blocking request.");
+                logger.LogError("No API keys found in key file. Blocking request.");
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 await context.Response.WriteAsync("No API keys configured on server.");
                 return;
@@ -103,11 +92,11 @@ namespace SteamAPI.Middleware
 
             if (!string.IsNullOrEmpty(providedKey) && _allowedKeysFromFile.Contains(providedKey))
             {
-                await _next(context);
+                await next(context);
                 return;
             }
 
-            _logger.LogWarning($"Unauthorized request to {path} from: {context.Request.HttpContext.Connection.RemoteIpAddress}");
+            logger.LogWarning($"Unauthorized request to {path} from: {context.Request.HttpContext.Connection.RemoteIpAddress}");
             
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsync("Unauthorized");

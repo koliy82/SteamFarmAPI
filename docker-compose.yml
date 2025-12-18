@@ -9,5 +9,5 @@ services:
       - ASPNETCORE_URLS=http://+:8080
     command: ["dotnet", "run", "--project", "SteamAPI.csproj", "--urls", "http://+:8080"]
     ports:
-      - "80:8080"
+      - "10001:8080"
     restart: "always"

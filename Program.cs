@@ -2,7 +2,6 @@ using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using SteamAPI.Models.Mongo;
 using SteamAPI.Services;
-using SteamFarmApi.Configurations;
 using SteamAPI.Middleware;
 using SteamAPI.Models.Mongo.Repositories;
 

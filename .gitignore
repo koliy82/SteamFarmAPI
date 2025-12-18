@@ -401,3 +401,4 @@ FodyWeavers.xsd
 *.sln.iml
 appsettings.json
 api_keys.txt
+.idea

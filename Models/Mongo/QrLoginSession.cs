@@ -4,12 +4,12 @@ using SteamAPI.Models.Mongo.Models;
 
 namespace SteamAPI.Models.Mongo
 {
-    public class QrLoginSession(string SteamId): IEntity
+    public class QrLoginSession(string steamId): IEntity
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
-        public string SteamId { get; set; } = SteamId;
+        public string SteamId { get; set; } = steamId;
 
         public string? Username { get; set; }
         public string ChallengeUrl { get; set; } = "";
