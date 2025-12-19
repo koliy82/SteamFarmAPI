@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using System.Reflection;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using SteamAPI.Models.Sessions;
 
@@ -19,8 +20,20 @@ namespace SteamAPI.Models.Mongo.Models
         [BsonElement("state")]
         public SessionStatus State { get; set; } = SessionStatus.Unknown;
         [BsonElement("reason")]
-        public string? Reason { get; set; }
+        public LogReason Reason { get; set; }
         [BsonElement("date")]
         public DateTime Date { get; set; } = DateTime.Now;
     }
+    
+    public enum LogReason
+    {
+        GamesSend,
+        UserStop,
+        UserDelete,
+        AuthError,
+        ConnectionError,
+        UnknownError,
+    }
 }
+
+

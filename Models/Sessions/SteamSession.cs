@@ -87,7 +87,7 @@ namespace SteamAPI.Models.Sessions
                 logger.LogInformation($"[{accountData.Username}] Farming stopped for games: {string.Join(",", accountData.GameIds)}");
                 await _logRepo.Coll.InsertOneAsync(new FarmLog
                 {
-                    Reason = "User stop",
+                    Reason = LogReason.UserStop,
                     State = status,
                     SteamId = accountData.Id,
                     SteamName = accountData.Username,
@@ -245,7 +245,7 @@ namespace SteamAPI.Models.Sessions
             _steamClient.Send(playGame);
             await _logRepo.Coll.InsertOneAsync(new FarmLog
             {
-                Reason = "Send games",
+                Reason = LogReason.GamesSend,
                 State = status,
                 SteamId = accountData.Id,
                 SteamName = accountData.Username,
