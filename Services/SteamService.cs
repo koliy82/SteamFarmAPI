@@ -27,18 +27,20 @@ namespace SteamAPI.Services
         {
             var account = await accRepo.FindByIdAsync(accountId);
             if (account == null || string.IsNullOrEmpty(account.RefreshToken)) return;
-            var session = _activeSessions[accountId];
-            if (session == null)
-            {
-                session = new SteamSession(account, logger, accRepo, qrRepo, farmRepo);
-                _activeSessions[accountId] = session;
-            }
-            session.accountData.IsFarming = true;
-            await session.Start();
-
-            // Обновляем статус в БД
+            // Обновляем статус в БД первым — чтобы сессия при проверке видела актуальное состояние
             var update = Builders<SteamAccount>.Update.Set(x => x.IsFarming, true);
             await accRepo.Coll.UpdateOneAsync(x => x.Id == accountId, update);
+
+            // безопасно получаем или создаём сессию
+            if (!_activeSessions.TryGetValue(accountId, out var session))
+            {
+                session = new SteamSession(account, logger, accRepo, qrRepo, farmRepo);
+                _activeSessions.TryAdd(accountId, session);
+            }
+
+            // Запрос от пользователя — явно просим сессию возобновить фарм.
+            session.accountData.IsFarming = true;
+            await session.RequestStartFarming();
         }
 
         public async Task InitialStart()
