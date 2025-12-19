@@ -72,22 +72,24 @@ namespace SteamAPI.Models.Sessions
 
         public async Task Start()
         {
+            if (status == SessionStatus.Stopped)
+                Init();
             if (_steamClient.IsConnected && accountData.IsFarming)
             {
                 await SendGamesPlayed();
             }
         }
 
-        public async Task Stop()
+        public async Task Stop(LogReason reason)
         {
             if (_steamClient.IsConnected)
             {
                 var playGame = new ClientMsgProtobuf<CMsgClientGamesPlayed>(EMsg.ClientGamesPlayedWithDataBlob);
                 _steamClient.Send(playGame);
-                logger.LogInformation($"[{accountData.Username}] Farming stopped for games: {string.Join(",", accountData.GameIds)}");
+                logger.LogInformation($"[{accountData.Username}] Farming stopped for games: {string.Join(",", accountData.GameIds)}, reason: {reason}");
                 await _logRepo.Coll.InsertOneAsync(new FarmLog
                 {
-                    Reason = LogReason.UserStop,
+                    Reason = reason,
                     State = status,
                     SteamId = accountData.Id,
                     SteamName = accountData.Username,
@@ -99,7 +101,7 @@ namespace SteamAPI.Models.Sessions
         public async Task Delete()
         {
             status = SessionStatus.Deleted;
-            await Stop();
+            await Stop(LogReason.UserDelete);
             _isRunning = false;
             _cts?.Cancel();
             _steamUser?.LogOff();
@@ -266,6 +268,21 @@ namespace SteamAPI.Models.Sessions
         async void OnLoggedOff(SteamUser.LoggedOffCallback callback)
         {
             logger.LogInformation($"[{accountData.Username}] Logged off: {callback.Result}");
+            if (callback.Result == EResult.LoggedInElsewhere)
+            {
+                _isRunning = false;
+                _cts?.Cancel();
+                status = SessionStatus.Stopped;
+                await _logRepo.Coll.InsertOneAsync(new FarmLog
+                {
+                    Reason = LogReason.LoggedInElsewhere,
+                    State = status,
+                    SteamId = accountData.Id,
+                    SteamName = accountData.Username,
+                    TelegramId = accountData.TelegramId,
+                });
+                return;
+            }
             status = SessionStatus.NeedAuth;
         }
 

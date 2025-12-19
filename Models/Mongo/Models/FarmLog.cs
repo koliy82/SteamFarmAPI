@@ -33,6 +33,7 @@ namespace SteamAPI.Models.Mongo.Models
         AuthError,
         ConnectionError,
         UnknownError,
+        LoggedInElsewhere,
     }
 }
 

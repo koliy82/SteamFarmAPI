@@ -59,9 +59,8 @@ namespace SteamAPI.Services
         {
             if (_activeSessions.TryGetValue(accountId, out var session))
             {
-                await session.Stop();
+                await session.Stop(LogReason.UserStop);
             }
-
             var update = Builders<SteamAccount>.Update.Set(x => x.IsFarming, false);
             await accRepo.Coll.UpdateOneAsync(x => x.Id == accountId, update);
         }
